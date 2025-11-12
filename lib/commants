@@ -1,0 +1,86 @@
+r Hot reload.
+R Hot restart.
+h List all available interactive commands.
+d Detach (terminate "flutter run" but leave application running).
+c Clear the screen
+q Quit (terminate the application on the device).7
+
+
+flutter run
+
+
+
+
+Future<void> editAlarm(
+      int id, {
+        required String? label,
+        required String? music,
+        required int minutesSinceMidnight,
+        required int isActive, // 0 or 1 from the card
+        required List<String> selectedDays,
+        String? notificationKey,
+      }) async {
+    try {
+      final key = notificationKey ?? id.toString();
+
+      // Cancel old notification
+      await _notifier.cancelAlarm(int.parse(key));
+
+      // Prepare updated data for DB
+      final updatedData = {
+        'minutesSinceMidnight': minutesSinceMidnight,
+        'isActive': isActive, // directly from card
+        'label': label?.isEmpty ?? true ? null : label,
+        'days': selectedDays.isEmpty ? null : selectedDays.join(','),
+        'music': music,
+        'notificationKey': key,
+      };
+
+      // Update DB
+      await AlarmDatabase.instance.update(id, updatedData);
+      log('[AlarmsBloc] ✏️ Alarm updated with ID: $id, data: $updatedData');
+
+      // Re-schedule notification
+      final time = minutesSinceMidnightToTime(minutesSinceMidnight);
+      final hour = time['hour']!;
+      final minute = time['minute']!;
+      final labelToUse = label?.isEmpty ?? true ? 'Alarm' : label!;
+
+      if (selectedDays.isEmpty || isActive == 0) {
+        if (isActive == 1) {
+          final now = DateTime.now();
+          final next = DateTime(now.year, now.month, now.day, hour, minute);
+          final target = next.isBefore(now) ? next.add(const Duration(days: 1)) : next;
+
+          await _notifier.scheduleOneTimeAlarm(
+            id: int.parse(key),
+            dateTime: target,
+            label: labelToUse,
+          );
+          log('[AlarmsBloc] 🔁 Re-scheduled one-time alarm');
+        } else {
+          log('[AlarmsBloc] Alarm inactive, skipping schedule');
+        }
+      } else {
+        await _notifier.scheduleRepeatingAlarm(
+          id: int.parse(key),
+          label: labelToUse,
+          hour: hour,
+          minute: minute,
+          weekdays: selectedDays,
+        );
+        log('[AlarmsBloc] 🔁 Re-scheduled repeating alarm');
+      }
+    } catch (e) {
+      log('[AlarmsBloc] ❌ Error editing alarm: $e');
+    }
+
+    add(ResetAlarmStateEvent());
+  }
+
+here why we have the if ? if (selectedDays.isEmpty || isActive == 0)  like this?
+
+if its  0 then disable and edit we dont care in a way. we will edit the time as it was why datatime.now()
+
+if selectedDays is empty
+

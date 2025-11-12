@@ -1,0 +1,195 @@
+import 'dart:async';
+import 'dart:developer';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/timer_bloc/timer_bloc.dart';
+
+class Timers extends StatefulWidget {
+  @override
+  _TimersState createState() => _TimersState();
+}
+
+class _TimersState extends State<Timers> {
+  late FixedExtentScrollController hourCtrl;
+  late FixedExtentScrollController minCtrl;
+  late FixedExtentScrollController secCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    hourCtrl = FixedExtentScrollController();
+    minCtrl = FixedExtentScrollController();
+    secCtrl = FixedExtentScrollController();
+  }
+
+  @override
+  void dispose() {
+    hourCtrl.dispose();
+    minCtrl.dispose();
+    secCtrl.dispose();
+    super.dispose();
+  }
+
+  int getTotalSeconds() {
+    return hourCtrl.selectedItem * 3600 +
+        minCtrl.selectedItem * 60 +
+        secCtrl.selectedItem;
+  }
+
+  void updatePickers(int totalSeconds) {
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      hourCtrl.jumpToItem(hours);
+      minCtrl.jumpToItem(minutes);
+      secCtrl.jumpToItem(seconds);
+    });
+  }
+
+  Widget _buildPicker(
+    String label,
+    FixedExtentScrollController controller,
+    int count,
+  ) {
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.15,
+      width: MediaQuery.of(context).size.width * 0.25,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CupertinoPicker.builder(
+            scrollController: controller,
+            itemExtent: 40,
+            onSelectedItemChanged: (_) {},
+            selectionOverlay: Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.3),
+              ),
+            ),
+            childCount: count,
+            itemBuilder: (context, index) {
+              return Center(
+                child: Text(
+                  '$index $label',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => TimerBloc(),
+      child: Scaffold(
+        body: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            BlocConsumer<TimerBloc, TimerState>(
+              listener: (context, state) {
+                if (state is TimerRunInProgress) {
+                  updatePickers(state.duration);
+                }
+              },
+              builder: (context, state) {
+                final isRunning = state is TimerRunInProgress;
+                return AbsorbPointer(
+                  absorbing: isRunning,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+
+                    children: [
+                      _buildPicker('h', hourCtrl, 24),
+                      _buildPicker('m', minCtrl, 60),
+                      _buildPicker('s', secCtrl, 60),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+            BlocBuilder<TimerBloc, TimerState>(
+              builder: (context, state) {
+                if (state is TimerInitial || state is TimerRunComplete) {
+                  return ElevatedButton(
+                    onPressed: () {
+                      final totalSeconds = getTotalSeconds();
+                      if (totalSeconds > 0) {
+                        context.read<TimerBloc>().add(StartTimer(totalSeconds));
+                      }
+                    },
+                    child: const Text('Start'),
+                  );
+                } else if (state is TimerRunInProgress) {
+                  return ElevatedButton(
+                    onPressed:
+                        () => context.read<TimerBloc>().add(ResetTimer()),
+                    child: const Text('Reset'),
+                  );
+                }
+                return const SizedBox();
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 32.0),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.40,
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('h:m:s'),
+                          TextButton(onPressed: () {}, child: Text("Start")),
+                        ],
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+
+                        children: [
+                          Text('h:m:s'),
+                          TextButton(
+                            onPressed: () {},
+                            child: Text("Start"),
+                            style: TextButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: const BorderRadius.all(
+                                  Radius.circular(8),
+                                ),
+                                side: BorderSide(color: Colors.red, width: 5),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+
+                        children: [
+                          Text('h:m:s'),
+                          TextButton(onPressed: () {}, child: Text("Start")),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
