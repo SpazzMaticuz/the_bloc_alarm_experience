@@ -97,7 +97,7 @@ flutter:
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
   #
-  # For details regarding fonts from package dependencies,
+  # For details regarding fonts from package dependencigit push origin masteres,
   # see https://flutter.dev/to/font-from-package
 flutter_native_splash:
   color: "#ffffff"
