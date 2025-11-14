@@ -104,22 +104,6 @@ class AlarmNotificationController {
     log('[AlarmNotifications] Created: ${notification.id}');
   }
 
-  // 🔔 CRITICAL: When the scheduled alarm is displayed (even in background)
-  // @pragma('vm:entry-point')
-  // static Future<void> onDisplayed(ReceivedNotification notification) async {
-  //   log('[AlarmNotifications] Displayed: ${notification.id}');
-  //
-  //   if (notification.channelKey == 'alarm_channel') {
-  //     final musicPath = notification.payload?['musicPath'];
-  //
-  //     if (musicPath != null) {
-  //       log('[AlarmNotifications] Alarm displayed, playing sound from payload: $musicPath');
-  //       await _playAlarmSound(musicPath);
-  //     } else {
-  //       log('[AlarmNotifications] Alarm displayed, but no musicPath found in payload.');
-  //     }
-  //   }
-  // }
 
   @pragma('vm:entry-point')
   static Future<void> onDisplayed(ReceivedNotification notification) async {
@@ -177,28 +161,6 @@ class AlarmNotificationController {
     log('[AlarmNotifications] Dismissed: ${action.id}');
   }
 
-
-  // @pragma('vm:entry-point')
-  // static Future<void> onActionReceivedMethod(ReceivedAction action) async {
-  //   await initializeChannels();
-  //   log('[AlarmNotifications] Action pressed: ${action.buttonKeyPressed}, Channel: ${action.channelKey}');
-  //
-  //   final isTimerAction = action.channelKey == 'timer_channel';
-  //   final isAlarmAction = action.channelKey == 'alarm_channel';
-  //   final isStopButtonPress = action.buttonKeyPressed == 'STOP';
-  //
-  //   if ((isTimerAction || isAlarmAction) && isStopButtonPress) {
-  //     // Handles STOP button for both Timer and Alarm (using audiocontrol)
-  //     await _stopAlarmAndDismiss(action.id);
-  //   } else if (isAlarmAction) {
-  //     // Handles body tap for alarm: stop sound, dismiss notification
-  //     await _stopAlarmAndDismiss(action.id);
-  //   } else if (isTimerAction) {
-  //     // Handles body tap for timer: stop sound, dismiss notification
-  //     await _stopAlarmAndDismiss(action.id);
-  //     // The TimerBloc will handle navigation after the app opens.
-  //   }
-  // }
 
   @pragma('vm:entry-point')
   static Future<void> onActionReceivedMethod(ReceivedAction action) async {
@@ -314,7 +276,7 @@ class AlarmNotificationController {
     required int hour,
     required int minute,
     required List<String> weekdays,
-    required String musicPath, // Still required to pass to payload
+    required String musicPath,
   }) async {
     final tz = await _notifications.getLocalTimeZoneIdentifier();
     final days = weekdays.join(',');
@@ -351,11 +313,6 @@ class AlarmNotificationController {
     );
   }
 
-  // --- Cancel specific alarm ---
-  // Future<void> cancelAlarm(int id) async {
-  //   log('[AlarmNotifications] Cancel alarm id=$id');
-  //   await _notifications.cancel(id);
-  // }
 
   // --- Cancel specific alarm (FIXED LOGIC) ---
   Future<void> cancelAlarm(int id) async {

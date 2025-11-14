@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 
+import 'app_colors/app_colors.dart';
+import 'app_colors/app_themes.dart';
 import 'bloc/alarms/alarms_bloc.dart';
 import 'bloc/timer_bloc/timer_bloc.dart';
 import 'cubic/timer_cubic_cubit.dart';
@@ -26,6 +28,7 @@ void main() async {
   if (!isAllowedToSendNotifications) {
     AwesomeNotifications().requestPermissionToSendNotifications();
   }
+  await AlarmNotificationController().createFromDatabase();
 
   runApp(
     MultiBlocProvider(
@@ -43,6 +46,7 @@ void main() async {
 }
 
 class MyApp extends StatefulWidget {
+
   const MyApp({super.key});
 
   @override
@@ -50,6 +54,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+
 
   // ❌ REMOVED: onActionReceivedMethod is now inside AlarmNotificationController
   // to properly handle background isolates.
@@ -73,11 +78,8 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      title: 'Alarm of the Bloc',
+      theme: AppThemes.darkTheme(),
       home: const MainScreenHolder(),
     );
   }

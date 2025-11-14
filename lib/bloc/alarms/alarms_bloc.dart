@@ -27,7 +27,7 @@ class AlarmsBloc extends Bloc<AlarmsEvent, AlarmsState> {
         selectedDays: event.selectedDays,
       ));
     });
-
+    on<ToggleAlarmActiveEvent>(_onToggleAlarmActive);
   }
 
   void _onChangeView(ChangeViewEvent event, Emitter<AlarmsState> emit) {
@@ -246,6 +246,73 @@ class AlarmsBloc extends Bloc<AlarmsEvent, AlarmsState> {
     add(ResetAlarmStateEvent());
   }
 
+
+// File: alarms_bloc.dart (Inside AlarmsBloc class)
+
+  void _onToggleAlarmActive(
+      ToggleAlarmActiveEvent event,
+      Emitter<AlarmsState> emit,
+      ) async {
+    try {
+      // 1. Read existing alarm data from DB
+      final alarm = await AlarmDatabase.instance.read(event.alarmId);
+      if (alarm == null) {
+        log('[AlarmsBloc] ❌ Alarm ID ${event.alarmId} not found for toggling.');
+        return;
+      }
+
+      // 2. Update the isActive status in the database
+      await AlarmDatabase.instance.update(event.alarmId, {
+        'isActive': event.isActive ? 1 : 0,
+      });
+      log('[AlarmsBloc] Toggled alarm ${event.alarmId} to active: ${event.isActive}');
+
+      // 3. Schedule or cancel the notification (Your existing logic)
+      final minutes = alarm['minutesSinceMidnight'] as int;
+      final time = minutesSinceMidnightToTime(minutes);
+      final hour = time['hour']!;
+      final minute = time['minute']!;
+      final label = alarm['label'] ?? 'Alarm';
+      final music = alarm['music'] ?? 'songs/alarm.mp3';
+      final selectedDays = (alarm['days'] as String?)?.split(',')?.map((d) => d.trim()).where((d) => d.isNotEmpty).toList() ?? [];
+      final notifier = AlarmNotificationController();
+
+      if (event.isActive) {
+        // Logic to schedule one-time or repeating alarm...
+        if (selectedDays.isEmpty) {
+          final now = DateTime.now();
+          final next = DateTime(now.year, now.month, now.day, hour, minute);
+          final target = next.isBefore(now) ? next.add(const Duration(days: 1)) : next;
+          await notifier.scheduleOneTimeAlarm(
+            id: event.alarmId,
+            dateTime: target,
+            label: label,
+            musicPath: music,
+          );
+        } else {
+          await notifier.scheduleRepeatingAlarm(
+            id: event.alarmId,
+            label: label,
+            hour: hour,
+            minute: minute,
+            weekdays: selectedDays,
+            musicPath: music,
+          );
+        }
+        log('[AlarmsBloc] 🔔 Alarm rescheduled/activated.');
+      } else {
+        // Cancel logic...
+        await notifier.cancelAlarm(event.alarmId);
+        log('[AlarmsBloc] 🔕 Alarm cancelled/deactivated.');
+      }
+
+    } catch (e) {
+      log('[AlarmsBloc] ❌ Error toggling alarm active: $e');
+    }
+
+    // ➡️ SIGNAL COMPLETION
+    event.completer?.complete();
+  }
 }
 
 // --- Utility functions for conversion ---
@@ -259,3 +326,4 @@ Map<String, int> minutesSinceMidnightToTime(int totalMinutes) {
   int minute = totalMinutes % 60;
   return {'hour': hour, 'minute': minute};
 }
+

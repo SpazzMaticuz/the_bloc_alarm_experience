@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../app_colors/app_colors.dart';
 import '../bloc/alarms/alarms_bloc.dart';
 import 'alarm_song_selector.dart';
 
@@ -15,8 +16,9 @@ const Map<String, String> shortToFullDayNames = {
 };
 
 // Reverse mapping
-final Map<String, String> fullToShortDayNames =
-{for (var e in shortToFullDayNames.entries) e.value: e.key};
+final Map<String, String> fullToShortDayNames = {
+  for (var e in shortToFullDayNames.entries) e.value: e.key,
+};
 
 class BottomPopup extends StatefulWidget {
   final String title;
@@ -39,15 +41,15 @@ class BottomPopup extends StatefulWidget {
   });
 
   static Future<void> show(
-      BuildContext context, {
-        required String title,
-        required Widget content,
-        VoidCallback? onSave,
-        VoidCallback? onCancel,
-        Widget? actionButton,
-        VoidCallback? onClose,
-        bool showButton = false,
-      }) {
+    BuildContext context, {
+    required String title,
+    required Widget content,
+    VoidCallback? onSave,
+    VoidCallback? onCancel,
+    Widget? actionButton,
+    VoidCallback? onClose,
+    bool showButton = false,
+  }) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
     final bloc = context.read<AlarmsBloc>();
@@ -95,7 +97,10 @@ class _BottomPopupState extends State<BottomPopup> {
     final currentState = bloc.state;
 
     // Call the modal and wait for a selection, using the current music path
-    final selectedPath = await showAlarmSongSelector(context, currentState.music);
+    final selectedPath = await showAlarmSongSelector(
+      context,
+      currentState.music,
+    );
 
     if (selectedPath != null && selectedPath != currentState.music) {
       // Dispatch the new event to update the music path in the BLoC state
@@ -105,7 +110,15 @@ class _BottomPopupState extends State<BottomPopup> {
 
   @override
   Widget build(BuildContext context) {
-    final List<String> allDays = const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final List<String> allDays = const [
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ];
 
     return DraggableScrollableSheet(
       minChildSize: 0.5,
@@ -118,21 +131,20 @@ class _BottomPopupState extends State<BottomPopup> {
             final bloc = context.read<AlarmsBloc>();
 
             return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              decoration: BoxDecoration(
+                color: AppColors.cardBackground,
+                borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20)),
               ),
               child: Column(
                 children: [
                   _buildHeader(context, state.currentView),
-                  const Divider(height: 1),
+                  Divider(height: 1, color: AppColors.divider),
                   Expanded(
                     child: IndexedStack(
                       index: state.currentView.index,
                       children: [
-                        // Main alarm form
                         _MainAlarmFormView(
-
                           scrollController: scrollController,
                           content: widget.content,
                           labelText: state.labelText,
@@ -140,17 +152,26 @@ class _BottomPopupState extends State<BottomPopup> {
                           selectedDays: state.selectedDays
                               .map((d) => shortToFullDayNames[d] ?? d)
                               .toList(),
-                          onLabelChanged: (val) => bloc.add(UpdateLabelEvent(val)),
+                          onLabelChanged: (val) =>
+                              bloc.add(UpdateLabelEvent(val)),
                           onRepeatTap: () =>
-                              bloc.add(ChangeViewEvent(PopupView.repeatSelection)),
+                              bloc.add(
+                                  ChangeViewEvent(PopupView.repeatSelection)),
                           onSoundTap: () => _handleSoundTap(context),
                         ),
-
-                        // Repeat selection view
                         RepeatSelectionView(
-                          allDays: allDays,
+                          allDays: const [
+                            'Mon',
+                            'Tue',
+                            'Wed',
+                            'Thu',
+                            'Fri',
+                            'Sat',
+                            'Sun'
+                          ],
                           selectedDays: state.selectedDays,
-                          toggleDay: (shortName) => bloc.add(ToggleDayEvent(shortName)),
+                          toggleDay: (shortName) =>
+                              bloc.add(ToggleDayEvent(shortName)),
                         ),
                       ],
                     ),
@@ -160,6 +181,10 @@ class _BottomPopupState extends State<BottomPopup> {
                       padding: const EdgeInsets.all(16),
                       child: widget.actionButton ??
                           ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: AppColors.text,
+                            ),
                             onPressed: () {
                               Navigator.of(context).pop();
                               widget.onClose?.call();
@@ -184,14 +209,17 @@ class _BottomPopupState extends State<BottomPopup> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           if (currentView == PopupView.main)
-            TextButton(onPressed: _handleCancel, child: const Text('Cancel')),
+            TextButton(
+              onPressed: _handleCancel,
+              child: const Text('Cancel', style: TextStyle(color: AppColors.text)),
+            ),
           if (currentView == PopupView.repeatSelection)
             TextButton.icon(
               onPressed: () => bloc.add(ChangeViewEvent(PopupView.main)),
-              icon: const Icon(Icons.chevron_left, size: 26),
+              icon: const Icon(Icons.chevron_left, size: 26, color: AppColors.text),
               label: const Text(
                 'Back',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.text),
               ),
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,
@@ -200,16 +228,20 @@ class _BottomPopupState extends State<BottomPopup> {
             ),
           Text(
             currentView == PopupView.main ? widget.title : 'Repeat',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.text),
           ),
           if (currentView == PopupView.main)
-            TextButton(onPressed: _handleSave, child: const Text('Save')),
+            TextButton(
+              onPressed: _handleSave,
+              child: const Text('Save', style: TextStyle(color: AppColors.text)),
+            ),
           if (currentView == PopupView.repeatSelection)
             const SizedBox(width: 40),
         ],
       ),
     );
   }
+
 }
 
 // ------------------------
@@ -251,29 +283,35 @@ class _MainAlarmFormView extends StatelessWidget {
           children: [
             content,
             const SizedBox(height: 24),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Column(
-                children: [
-                  _buildSettingsRow('Repeat', daySummary, true, onRepeatTap),
-                  const Divider(height: 1),
-                  _buildLabelRow(),
-                  const Divider(height: 1),
-                  _buildSettingsRow('Sound', soundName, true, onSoundTap),
-                ],
-              ),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.rowBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.divider),
             ),
+            child: Column(
+              children: [
+                _buildSettingsRow('Repeat', daySummary, true, onRepeatTap),
+                Divider(height: 1, color: AppColors.divider),
+                _buildLabelRow(),
+                Divider(height: 1, color: AppColors.divider),
+                _buildSettingsRow('Sound', soundName, true, onSoundTap),
+              ],
+            ),
+          ),
+
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSettingsRow(String title, String value, bool showArrow, VoidCallback onTap) {
+  Widget _buildSettingsRow(
+    String title,
+    String value,
+    bool showArrow,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -281,12 +319,20 @@ class _MainAlarmFormView extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87)),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.text,
+              ),
+            ),
             Row(
               children: [
-                Text(value, style: const TextStyle(fontSize: 16, color: Colors.black87)),
+                Text(
+                  value,
+                  style: const TextStyle(fontSize: 16, color: AppColors.text),
+                ),
                 if (showArrow) ...[
                   const SizedBox(width: 8),
                   const Icon(Icons.chevron_right, color: Colors.grey),
@@ -306,15 +352,24 @@ class _MainAlarmFormView extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('Label',
-              style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87)),
+          const Text(
+            'Label',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.text,
+            ),
+          ),
           Expanded(
             child: TextField(
               controller: controller,
               textAlign: TextAlign.right,
               decoration: const InputDecoration(
-                  hintText: 'Alarm', hintStyle: TextStyle(color: Colors.black54, fontSize: 16), border: InputBorder.none, isDense: true),
+                hintText: 'Alarm',
+                hintStyle: TextStyle(color: Colors.black54, fontSize: 16),
+                border: InputBorder.none,
+                isDense: true,
+              ),
               onChanged: onLabelChanged,
             ),
           ),
@@ -347,14 +402,14 @@ class RepeatSelectionView extends StatelessWidget {
           height: MediaQuery.of(context).size.height * 0.50,
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey.shade100,
+            color: AppColors.rowBackground,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: AppColors.divider),
           ),
           child: ListView.separated(
             padding: EdgeInsets.zero,
             itemCount: allDays.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, thickness: 1),
+            separatorBuilder: (_, __) => const Divider(height: 1, thickness: 1,color:AppColors.divider,),
             itemBuilder: (context, index) {
               final shortName = allDays[index];
               final fullName = shortToFullDayNames[shortName] ?? shortName;
@@ -365,14 +420,23 @@ class RepeatSelectionView extends StatelessWidget {
                 child: InkWell(
                   onTap: () => toggleDay(shortName),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(fullName,
-                            style: const TextStyle(
-                                fontSize: 16, color: Colors.black87, fontWeight: FontWeight.w600)),
-                        if (isSelected) const Icon(Icons.check, color: Colors.blue),
+                        Text(
+                          fullName,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: AppColors.text,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(Icons.check, color: Colors.blue),
                       ],
                     ),
                   ),

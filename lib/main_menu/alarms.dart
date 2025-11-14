@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,6 +7,7 @@ import '../alarm_screens/edit_alarm.dart';
 import '../bloc/alarms/alarms_bloc.dart';
 import '../modes/bottom_popup.dart';
 import '../database/alarm_database.dart';
+import '../notifications/alarm_notification_controller.dart';
 
 int timeToMinutesSinceMidnight(int hour, int minute) => hour * 60 + minute;
 
@@ -37,10 +39,7 @@ class AlarmCard extends StatelessWidget {
           style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700),
         ),
         subtitle: Text('$label - $note'),
-        trailing: Switch(
-          value: isActive,
-          onChanged: onToggle,
-        ),
+        trailing: Switch(value: isActive, onChanged: onToggle),
       ),
     );
   }
@@ -100,7 +99,10 @@ class _AlarmsState extends State<Alarms> {
               alarmsBloc.add(ResetAlarmStateEvent());
               // Initialize time
               final now = TimeOfDay.now();
-              final initialMinutes = timeToMinutesSinceMidnight(now.hour, now.minute);
+              final initialMinutes = timeToMinutesSinceMidnight(
+                now.hour,
+                now.minute,
+              );
               alarmsBloc.add(TimeUpdatedEvent(initialMinutes));
 
               // Show popup
@@ -136,83 +138,98 @@ class _AlarmsState extends State<Alarms> {
       body: alarms.isEmpty
           ? const Center(child: Text('No alarms yet'))
           : ListView.builder(
-        itemCount: alarms.length,
-        itemBuilder: (context, index) {
-          final alarm = alarms[index];
-          final minutes = alarm['minutesSinceMidnight'] as int;
-          final formattedTime = formatTime(minutes);
-          final hour = minutes ~/ 60;
-          final period = hour >= 12 ? 'PM' : 'AM';
+              itemCount: alarms.length,
+              itemBuilder: (context, index) {
+                final alarm = alarms[index];
+                final minutes = alarm['minutesSinceMidnight'] as int;
+                final formattedTime = formatTime(minutes);
+                final hour = minutes ~/ 60;
+                final period = hour >= 12 ? 'PM' : 'AM';
 
-          return AlarmCard(
-            time: formattedTime,
-            period: period,
-            label: alarm['label'] ?? 'Alarm',
-            note: alarm['days'] ?? 'Never',
-            isActive: (alarm['isActive'] ?? 1) == 1,
-            onToggle: (value) async {
-              await AlarmDatabase.instance.update(
-                alarm['id'] as int,
-                {
-                  'minutesSinceMidnight': alarm['minutesSinceMidnight'],
-                  'isActive': value ? 1 : 0,
-                  'label': alarm['label'],
-                  'days': alarm['days'],
-                  'music': alarm['music'],
+                return AlarmCard(
+                  time: formattedTime,
+                  period: period,
+                  label: alarm['label'] ?? 'Alarm',
+                  note: alarm['days'] ?? 'Never',
+                  isActive: alarm['isActive'] == 1,
+                  onToggle: (value) async { // ⬅️ Must be async
+                    final alarmId = alarm['id'] as int;
 
-                },
-              );
-              _loadAlarms();
-            },
-              onTap: () async {
-                final id = alarm['id'] as int;
-                final selectedDays = (alarm['days'] is String && (alarm['days'] as String).isNotEmpty)
-                    ? (alarm['days'] as String)
-                    .split(',')
-                    .map((d) => d.trim())
-                    .where((d) => d.isNotEmpty)
-                    .toList()
-                    : <String>[];
+                    // 1. Create a Completer
+                    final completer = Completer<void>();
 
-
-                // ✅ Preload values into Bloc BEFORE opening popup
-                alarmsBloc.add(AlarmPreloadedEvent(
-                  minutesSinceMidnight: alarm['minutesSinceMidnight'] as int,
-                  labelText: alarm['label'] ?? '',
-                  isActive: (alarm['isActive'] ?? 1) as int,
-                  music: alarm['music'] ?? 'songs/alarm.mp3',
-                  selectedDays: selectedDays,
-                ));
-
-                // ✅ Now open the popup — it’ll display the preloaded values
-                AlarmEditorPopup.show(
-                  context,
-                  alarmId: id,
-                  onSave: () async {
-                    await alarmsBloc.editAlarm(
-                      id,
-                      label: alarmsBloc.state.labelText, // ✅ Use BLoC state
-                      music: alarmsBloc.state.music,     // ✅ Use BLoC state
-                      minutesSinceMidnight: alarmsBloc.state.minutesSinceMidnight!, // ✅ Use BLoC state
-                      isActive: alarmsBloc.state.isActive, // ✅ Use BLoC state
-                      selectedDays: alarmsBloc.state.selectedDays, // ✅ Use BLoC state
-                      notificationKey: alarm['notificationKey'],
+                    // 2. Dispatch the event WITH the Completer
+                    alarmsBloc.add(
+                      ToggleAlarmActiveEvent(
+                        alarmId: alarmId,
+                        isActive: value,
+                        completer: completer, // ⬅️ Pass the completer
+                      ),
                     );
+
+                    // 3. Await the Completer's Future
+                    // This pauses the execution until the BLoC calls completer.complete()
+                    await completer.future;
+
+                    // 4. Refresh the list only AFTER the BLoC is complete
                     await _loadAlarms();
                   },
-                  onDelete: () async {
-                    await AlarmDatabase.instance.delete(id);
-                    log('Alarm deleted');
-                    alarmsBloc.add(ResetAlarmStateEvent());
-                    await _loadAlarms();
+
+                  onTap: () async {
+                    final id = alarm['id'] as int;
+                    final selectedDays =
+                        (alarm['days'] is String &&
+                            (alarm['days'] as String).isNotEmpty)
+                        ? (alarm['days'] as String)
+                              .split(',')
+                              .map((d) => d.trim())
+                              .where((d) => d.isNotEmpty)
+                              .toList()
+                        : <String>[];
+
+                    // ✅ Preload values into Bloc BEFORE opening popup
+                    alarmsBloc.add(
+                      AlarmPreloadedEvent(
+                        minutesSinceMidnight:
+                            alarm['minutesSinceMidnight'] as int,
+                        labelText: alarm['label'] ?? '',
+                        isActive: (alarm['isActive'] ?? 1) as int,
+                        music: alarm['music'] ?? 'songs/alarm.mp3',
+                        selectedDays: selectedDays,
+                      ),
+                    );
+
+                    // ✅ Now open the popup — it’ll display the preloaded values
+                    AlarmEditorPopup.show(
+                      context,
+                      alarmId: id,
+                      onSave: () async {
+                        await alarmsBloc.editAlarm(
+                          id,
+                          label: alarmsBloc.state.labelText, // ✅ Use BLoC state
+                          music: alarmsBloc.state.music, // ✅ Use BLoC state
+                          minutesSinceMidnight: alarmsBloc
+                              .state
+                              .minutesSinceMidnight!, // ✅ Use BLoC state
+                          isActive:
+                              alarmsBloc.state.isActive, // ✅ Use BLoC state
+                          selectedDays:
+                              alarmsBloc.state.selectedDays, // ✅ Use BLoC state
+                          notificationKey: alarm['notificationKey'],
+                        );
+                        await _loadAlarms();
+                      },
+                      onDelete: () async {
+                        await AlarmDatabase.instance.delete(id);
+                        log('Alarm deleted');
+                        alarmsBloc.add(ResetAlarmStateEvent());
+                        await _loadAlarms();
+                      },
+                    );
                   },
                 );
-              }
-
-
-          );
-        },
-      ),
+              },
+            ),
     );
   }
 }

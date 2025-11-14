@@ -53,3 +53,15 @@ class AlarmPreloadedEvent extends AlarmsEvent {
   });
 }
 
+class ToggleAlarmActiveEvent extends AlarmsEvent {
+  final int alarmId;
+  final bool isActive;
+  // ➡️ ADD THE COMPLETER
+  final Completer<void>? completer;
+
+  ToggleAlarmActiveEvent({
+    required this.alarmId,
+    required this.isActive,
+    this.completer, // ⬅️ Make it optional
+  });
+}

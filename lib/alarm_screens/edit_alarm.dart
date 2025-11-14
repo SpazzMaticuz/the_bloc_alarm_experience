@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 // ✅ Your BottomPopup utility (assumes you already have this somewhere)
+import '../app_colors/app_colors.dart';
 import '../bloc/alarms/alarms_bloc.dart';
 import '../modes/bottom_popup.dart';
 import 'alarm_options.dart'; // your AlarmOptions widget
@@ -43,7 +44,10 @@ class AlarmEditorPopup {
           onDelete();
           Navigator.of(context).pop();
         },
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: AppColors.text,
+          ),
         child: const Text('Delete Alarm'),
       ),
     );

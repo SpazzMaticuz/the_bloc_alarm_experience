@@ -23,7 +23,9 @@ class TimePickerRow extends StatefulWidget {
     this.initialTime,
     this.height = 0.15,
     this.widthFactor = 0.25,
-    this.overlayColor = const Color.fromARGB(60, 255, 165, 0),
+    this.overlayColor = const Color.fromARGB(80, 70, 100, 150),
+    //this.overlayColor = const Color.fromARGB(60, 255, 165, 0),
+
   });
 
   @override

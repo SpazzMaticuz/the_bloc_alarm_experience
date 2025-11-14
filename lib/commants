@@ -11,76 +11,59 @@ flutter run
 
 
 
-Future<void> editAlarm(
-      int id, {
-        required String? label,
-        required String? music,
-        required int minutesSinceMidnight,
-        required int isActive, // 0 or 1 from the card
-        required List<String> selectedDays,
-        String? notificationKey,
-      }) async {
-    try {
-      final key = notificationKey ?? id.toString();
+onToggle: (value) async {
+  final alarmId = alarm['id'] as int;
 
-      // Cancel old notification
-      await _notifier.cancelAlarm(int.parse(key));
+  // 1️⃣ Update DB first
+  await AlarmDatabase.instance.update(
+    alarmId,
+    {
+      'minutesSinceMidnight': alarm['minutesSinceMidnight'],
+      'isActive': value ? 1 : 0,
+      'label': alarm['label'],
+      'days': alarm['days'],
+      'music': alarm['music'],
+    },
+  );
 
-      // Prepare updated data for DB
-      final updatedData = {
-        'minutesSinceMidnight': minutesSinceMidnight,
-        'isActive': isActive, // directly from card
-        'label': label?.isEmpty ?? true ? null : label,
-        'days': selectedDays.isEmpty ? null : selectedDays.join(','),
-        'music': music,
-        'notificationKey': key,
-      };
+  // 2️⃣ Schedule or cancel the notification
+  final notifier = AlarmNotificationController();
 
-      // Update DB
-      await AlarmDatabase.instance.update(id, updatedData);
-      log('[AlarmsBloc] ✏️ Alarm updated with ID: $id, data: $updatedData');
+  final minutes = alarm['minutesSinceMidnight'] as int;
+  final hour = minutes ~/ 60;
+  final minute = minutes % 60;
+  final label = alarm['label'] ?? 'Alarm';
+  final music = alarm['music'] ?? 'songs/alarm.mp3';
+  final selectedDays = (alarm['days'] as String?)?.split(',') ?? [];
 
-      // Re-schedule notification
-      final time = minutesSinceMidnightToTime(minutesSinceMidnight);
-      final hour = time['hour']!;
-      final minute = time['minute']!;
-      final labelToUse = label?.isEmpty ?? true ? 'Alarm' : label!;
+  if (value) {
+    // Active → schedule
+    if (selectedDays.isEmpty) {
+      final now = DateTime.now();
+      final next = DateTime(now.year, now.month, now.day, hour, minute);
+      final target = next.isBefore(now) ? next.add(const Duration(days: 1)) : next;
 
-      if (selectedDays.isEmpty || isActive == 0) {
-        if (isActive == 1) {
-          final now = DateTime.now();
-          final next = DateTime(now.year, now.month, now.day, hour, minute);
-          final target = next.isBefore(now) ? next.add(const Duration(days: 1)) : next;
-
-          await _notifier.scheduleOneTimeAlarm(
-            id: int.parse(key),
-            dateTime: target,
-            label: labelToUse,
-          );
-          log('[AlarmsBloc] 🔁 Re-scheduled one-time alarm');
-        } else {
-          log('[AlarmsBloc] Alarm inactive, skipping schedule');
-        }
-      } else {
-        await _notifier.scheduleRepeatingAlarm(
-          id: int.parse(key),
-          label: labelToUse,
-          hour: hour,
-          minute: minute,
-          weekdays: selectedDays,
-        );
-        log('[AlarmsBloc] 🔁 Re-scheduled repeating alarm');
-      }
-    } catch (e) {
-      log('[AlarmsBloc] ❌ Error editing alarm: $e');
+      await notifier.scheduleOneTimeAlarm(
+        id: alarmId,
+        dateTime: target,
+        label: label,
+        musicPath: music,
+      );
+    } else {
+      await notifier.scheduleRepeatingAlarm(
+        id: alarmId,
+        label: label,
+        hour: hour,
+        minute: minute,
+        weekdays: selectedDays,
+        musicPath: music,
+      );
     }
-
-    add(ResetAlarmStateEvent());
+  } else {
+    // Inactive → cancel
+    await notifier.cancelAlarm(alarmId);
   }
 
-here why we have the if ? if (selectedDays.isEmpty || isActive == 0)  like this?
-
-if its  0 then disable and edit we dont care in a way. we will edit the time as it was why datatime.now()
-
-if selectedDays is empty
-
+  // 3️⃣ Refresh UI
+  _loadAlarms();
+},

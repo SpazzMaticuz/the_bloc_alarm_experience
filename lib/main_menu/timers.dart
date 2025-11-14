@@ -1,9 +1,5 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mynewclock/database/alarm_database.dart';
-// Note: TimerBloc provider removed from here, as it's in TimerControls
 import '../cubic/timer_cubic_cubit.dart';
 import '../modes/time_picker_row.dart';
 import '../modes/timer_controls.dart';
@@ -33,10 +29,10 @@ class _TimersState extends State<Timers> {
             },
           ),
           const SizedBox(height: 20),
-          TextButton(
-            onPressed: () {
-              context.read<TimerCubicCubit>().addTimer(totalSeconds);
-            },
+
+          ElevatedButton(
+            onPressed: () =>
+                context.read<TimerCubicCubit>().addTimer(totalSeconds),
             child: const Text('Enter'),
           ),
 
@@ -87,17 +83,6 @@ class _TimersState extends State<Timers> {
               ),
             ),
           ),
-
-          TextButton(
-            onPressed: () async {
-              final data = await AlarmDatabase.instance.readAll();
-              for (final alarm in data) {
-                log('🕒 Alarm: $alarm');
-              }
-            },
-            child: const Text('Show Data'),
-          ),
-
         ],
       ),
     );
