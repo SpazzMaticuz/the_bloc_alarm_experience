@@ -77,6 +77,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       navigatorKey: navigatorKey,
       title: 'Alarm of the Bloc',
+      debugShowCheckedModeBanner: false,
       theme: AppThemes.darkTheme(),
       home: const MainScreenHolder(),
     );
