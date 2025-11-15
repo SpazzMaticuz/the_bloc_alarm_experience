@@ -3,7 +3,7 @@ import 'package:stop_watch_timer/stop_watch_timer.dart';
 class TimerLap {
   final int lapNumber;
   final StopWatchTimer? _lapStopwatch;
-  final int? initialTime; // Used for first lap
+  final int? initialTime;
   final bool isFirstLap;
 
   TimerLap({

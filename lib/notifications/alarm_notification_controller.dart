@@ -3,64 +3,62 @@ import 'dart:developer';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import 'package:audioplayers/audioplayers.dart'; // Import AudioPlayers
+import 'package:audioplayers/audioplayers.dart';
 import '../database/alarm_database.dart';
 import '../global_values/global_values.dart';
 import '../main.dart';
 import '../splash_screen/random_stop_overlay.dart';
-// Removed: import '../global_values/global_values.dart';
 
 class AlarmNotificationController {
+  // Singleton instance
   static final AlarmNotificationController _instance = AlarmNotificationController._internal();
   factory AlarmNotificationController() => _instance;
   AlarmNotificationController._internal();
 
   final AwesomeNotifications _notifications = AwesomeNotifications();
 
-  // ✅ FIX: Internal static manager for the AudioPlayer instance
-  // This replaces the external globalAudioPlayer and keeps state internal.
+  // Current active alarm audio player
   static AudioPlayer? _currentAlarmPlayer;
+
+  // Tracks active overlays to prevent duplicates
   static final Set<int> _activeOverlays = {};
 
-  // --- NEW STATIC HELPER: Plays the selected audio in a loop ---
+  // --- Audio control ---
+
+  // Play alarm sound in loop
   @pragma('vm:entry-point')
   static Future<void> _playAlarmSound(String musicPath) async {
-    log('[AlarmNotifications] Starting audio playback for: $musicPath (Local Player)');
     try {
-      // 1. Dispose of any previous player to free resources
       await _currentAlarmPlayer?.dispose();
-
-      // 2. Create a new local instance for the alarm
       _currentAlarmPlayer = AudioPlayer();
-
       await _currentAlarmPlayer!.setReleaseMode(ReleaseMode.loop);
       await _currentAlarmPlayer!.setVolume(1.0);
       await _currentAlarmPlayer!.play(AssetSource(musicPath));
     } catch (e) {
-      log('[AlarmNotifications] Error playing audio in background: $e');
+      // Keep log if audio fails
+      log('[AlarmNotifications] Error playing audio: $e');
     }
   }
 
-  // --- NEW STATIC HELPER: Stops audio and dismisses notification ---
+  // Stop alarm audio and dismiss notification
   @pragma('vm:entry-point')
   static Future<void> _stopAlarmAndDismiss(int? id) async {
     await _currentAlarmPlayer?.stop();
-    await _currentAlarmPlayer?.dispose(); // CRITICAL: Dispose the resource
-    _currentAlarmPlayer = null; // Clear the reference
+    await _currentAlarmPlayer?.dispose();
+    _currentAlarmPlayer = null;
 
-    if (id != null) {
-      await AwesomeNotifications().dismiss(id);
-    }
-    log('[AlarmNotifications] Alarm sound stopped and notification dismissed.');
+    if (id != null) await AwesomeNotifications().dismiss(id);
   }
 
-  // --- Static method to register all channels ---
+  // --- Notification setup ---
+
+  // Initialize notification channels for timers and alarms
   static Future<void> initializeChannels() async {
     WidgetsFlutterBinding.ensureInitialized();
     await AwesomeNotifications().initialize(
       null,
       [
-        // 🔔 Timer channel
+        // Timer channel (no sound)
         NotificationChannel(
           channelKey: 'timer_channel',
           channelName: 'Timer Notifications',
@@ -68,10 +66,9 @@ class AlarmNotificationController {
           defaultColor: const Color(0xFF9D50DD),
           importance: NotificationImportance.High,
           channelShowBadge: true,
-          playSound: false, // Flutter controls sound via TimerBloc
+          playSound: false,
         ),
-
-        // ⏰ Alarm channel - NO CUSTOM SOUND, Flutter will play via payload
+        // Alarm channel (sound, vibration, full-screen)
         NotificationChannel(
           channelKey: 'alarm_channel',
           channelName: 'Alarm Notifications',
@@ -79,7 +76,7 @@ class AlarmNotificationController {
           defaultColor: Colors.redAccent,
           ledColor: Colors.red,
           importance: NotificationImportance.Max,
-          playSound: true, // Use default system sound as a backup, but audio will be played via Flutter
+          playSound: true,
           enableVibration: true,
           criticalAlerts: true,
         ),
@@ -87,46 +84,82 @@ class AlarmNotificationController {
     );
   }
 
-  // --- Initialization (listeners only) ---
+  // Attach listeners for notification events
   Future<void> initialize() async {
-    log('[AlarmNotifications] Initializing listeners...');
     await _notifications.setListeners(
       onActionReceivedMethod: onActionReceivedMethod,
-      onNotificationDisplayedMethod: onDisplayed, // <-- We will use this now
+      onNotificationDisplayedMethod: onDisplayed,
       onNotificationCreatedMethod: onCreated,
       onDismissActionReceivedMethod: onDismissed,
     );
   }
 
-  // --- Event listeners ---
+  // Called when a notification is created
   @pragma('vm:entry-point')
-  static Future<void> onCreated(ReceivedNotification notification) async {
-    log('[AlarmNotifications] Created: ${notification.id}');
-  }
+  static Future<void> onCreated(ReceivedNotification notification) async {}
 
-
+  // Called when notification appears on screen
   @pragma('vm:entry-point')
   static Future<void> onDisplayed(ReceivedNotification notification) async {
-    log('[AlarmNotifications] Displayed: ${notification.id} (${notification.channelKey})');
-
     final id = notification.id;
     final channel = notification.channelKey;
 
-    // 🕒 Timer notifications: don't play alarm audio
+    // Skip timer notifications
+    if (channel == 'timer_channel') return;
+
+    // Alarm notification: play sound and show overlay
+    if (channel == 'alarm_channel') {
+      final musicPath = notification.payload?['musicPath'];
+      if (musicPath != null) await _playAlarmSound(musicPath);
+
+      // Prevent duplicate overlays
+      if (!_activeOverlays.contains(id)) {
+        _activeOverlays.add(id!);
+
+        // Open overlay for stopping alarm
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          try {
+            navigatorKey.currentState?.push(
+              MaterialPageRoute(
+                builder: (_) => RandomStopOverlay(
+                  onStopPressed: () async {
+                    await _stopAlarmAndDismiss(id);
+                    _activeOverlays.remove(id);
+                  },
+                ),
+              ),
+            );
+          } catch (e) {
+            // Keep log if overlay fails
+            log('[AlarmNotifications] Failed to open overlay: $e');
+            _activeOverlays.remove(id);
+          }
+        });
+      }
+    }
+  }
+
+  // Called when notification is dismissed
+  @pragma('vm:entry-point')
+  static Future<void> onDismissed(ReceivedAction action) async {}
+
+  // Handles button presses or notification taps
+  @pragma('vm:entry-point')
+  static Future<void> onActionReceivedMethod(ReceivedAction action) async {
+    final id = action.id;
+    final channel = action.channelKey;
+
+    // Timer action: stop audio and dismiss
     if (channel == 'timer_channel') {
-      log('[AlarmNotifications] Timer notification displayed (id=$id). No sound will be played here.');
+      try {
+        await globalAudioPlayer.stop();
+      } catch (_) {}
+      if (id != null) await AwesomeNotifications().dismiss(id);
       return;
     }
 
-    // ⏰ Alarm notifications
+    // Alarm action: open overlay if not already active
     if (channel == 'alarm_channel') {
-      final musicPath = notification.payload?['musicPath'];
-      if (musicPath != null) {
-        log('[AlarmNotifications] Alarm displayed, playing sound from payload: $musicPath');
-        await _playAlarmSound(musicPath);
-      }
-
-      // 🔥 If app is in foreground, open RandomStopOverlay directly
       if (!_activeOverlays.contains(id)) {
         _activeOverlays.add(id!);
 
@@ -137,119 +170,41 @@ class AlarmNotificationController {
                 builder: (_) => RandomStopOverlay(
                   onStopPressed: () async {
                     await _stopAlarmAndDismiss(id);
-                    _activeOverlays.remove(id); // allow next alarms again
-                  },
-                ),
-              ),
-            );
-          } catch (e) {
-            log('[AlarmNotifications] ❌ Failed to open RandomStopOverlay: $e');
-            _activeOverlays.remove(id);
-          }
-        });
-      } else {
-        log('[AlarmNotifications] ⚠️ Overlay for ID $id already active, skipping duplicate.');
-      }
-
-    }
-  }
-
-
-
-  @pragma('vm:entry-point')
-  static Future<void> onDismissed(ReceivedAction action) async {
-    log('[AlarmNotifications] Dismissed: ${action.id}');
-  }
-
-
-  @pragma('vm:entry-point')
-  static Future<void> onActionReceivedMethod(ReceivedAction action) async {
-    await initializeChannels();
-    final id = action.id;
-    final channel = action.channelKey;
-    final button = action.buttonKeyPressed;
-
-    log('[AlarmNotifications] Action pressed (id=$id, channel=$channel, button=$button)');
-
-    // 🕒 TIMER CHANNEL HANDLING
-    if (channel == 'timer_channel') {
-      // ✅ Stop the timer sound (uses global player, not _currentAlarmPlayer)
-      try {
-        await globalAudioPlayer.stop();
-        log('[AlarmNotifications] Timer audio stopped.');
-      } catch (e) {
-        log('[AlarmNotifications] ❌ Error stopping timer audio: $e');
-      }
-
-      // Dismiss this timer notification only
-      if (id != null) {
-        await AwesomeNotifications().dismiss(id);
-      }
-
-      log('[AlarmNotifications] Timer action handled and dismissed (id=$id)');
-      return;
-    }
-
-    // ⏰ ALARM CHANNEL HANDLING
-    if (channel == 'alarm_channel') {
-      // ❌ REMOVE THIS LINE — it stops the sound too early
-      // await _stopAlarmAndDismiss(id);
-
-      if (!_activeOverlays.contains(id)) {
-        _activeOverlays.add(id!);
-
-        log('[AlarmNotifications] Alarm body tapped — opening RandomStopOverlay');
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          try {
-            navigatorKey.currentState?.push(
-              MaterialPageRoute(
-                builder: (_) => RandomStopOverlay(
-                  onStopPressed: () async {
-                    await _stopAlarmAndDismiss(id); // ✅ stop only here
                     _activeOverlays.remove(id);
                   },
                 ),
               ),
             );
           } catch (e) {
-            log('[AlarmNotifications] ❌ Failed to open RandomStopOverlay: $e');
+            log('[AlarmNotifications] Failed to open overlay: $e');
             _activeOverlays.remove(id);
           }
         });
-      } else {
-        log('[AlarmNotifications] ⚠️ Overlay for ID $id already active, skipping duplicate.');
       }
     }
   }
 
+  // --- Alarm scheduling ---
 
-
-  // --- Create one-time alarm ---
+  // One-time alarm
   Future<void> scheduleOneTimeAlarm({
     required int id,
     required DateTime dateTime,
     required String label,
-    required String musicPath, // Still required to pass to payload
+    required String musicPath,
   }) async {
-    log('[AlarmNotifications] Scheduling one-time alarm: $label at $dateTime, music: $musicPath');
-    if (dateTime.isBefore(DateTime.now())) {
-      log('[AlarmNotifications] Skipping past date');
-      return;
-    }
+    if (dateTime.isBefore(DateTime.now())) return;
 
-    // ❌ Removed soundFileName extraction and customSound property
     await _notifications.createNotification(
       content: NotificationContent(
         id: id,
         channelKey: 'alarm_channel',
         title: '⏰ $label',
-        body: 'Your alarm is ringing!',
+        body: 'Your alarm is ringing.',
         wakeUpScreen: true,
         fullScreenIntent: true,
         autoDismissible: false,
         locked: true,
-        // ✅ CRITICAL: Pass the music path in the payload
         payload: {'musicPath': musicPath, 'isAlarm': 'true'},
       ),
       schedule: NotificationCalendar(
@@ -259,17 +214,10 @@ class AlarmNotificationController {
         preciseAlarm: true,
         allowWhileIdle: true,
       ),
-      // actionButtons: [
-      //   NotificationActionButton(
-      //     key: 'STOP',
-      //     label: 'Stop',
-      //     color: Colors.red,
-      //   ),
-      // ],
     );
   }
 
-  // --- Create repeating alarm ---
+  // Repeating alarm using weekdays
   Future<void> scheduleRepeatingAlarm({
     required int id,
     required String label,
@@ -279,22 +227,18 @@ class AlarmNotificationController {
     required String musicPath,
   }) async {
     final tz = await _notifications.getLocalTimeZoneIdentifier();
-    final days = weekdays.join(',');
-    final cron = '0 $minute $hour ? * $days *';
+    final cron = '0 $minute $hour ? * ${weekdays.join(',')} *';
 
-    log('[AlarmNotifications] Scheduling repeating alarm: $label ($cron), music: $musicPath');
-    // ❌ Removed soundFileName extraction and customSound property
     await _notifications.createNotification(
       content: NotificationContent(
         id: id,
         channelKey: 'alarm_channel',
         title: '⏰ $label',
-        body: 'It\'s time!',
+        body: 'It\'s time.',
         wakeUpScreen: true,
         fullScreenIntent: true,
         autoDismissible: false,
         locked: true,
-        // ✅ CRITICAL: Pass the music path in the payload
         payload: {'musicPath': musicPath, 'isAlarm': 'true'},
       ),
       schedule: NotificationAndroidCrontab(
@@ -303,43 +247,23 @@ class AlarmNotificationController {
         preciseAlarm: true,
         allowWhileIdle: true,
       ),
-      // actionButtons: [
-      //   NotificationActionButton(
-      //     key: 'STOP',
-      //     label: 'Stop',
-      //     color: Colors.red,
-      //   ),
-      // ],
     );
   }
 
-
-  // --- Cancel specific alarm (FIXED LOGIC) ---
+  // Cancel a specific alarm
   Future<void> cancelAlarm(int id) async {
-    log('[AlarmNotifications] Cancel/Dismiss alarm id=$id');
-
-    // 1. Attempt to dismiss the notification (removes it from the display if currently ringing).
     await _notifications.dismiss(id);
-
-    // 2. Attempt to cancel any future schedules.
     await _notifications.cancel(id);
-
-    // 3. CRITICAL: Manually stop the static audio player instance
-    // since dismissing via code doesn't always trigger the audio stop listener.
-    // We pass null for the ID to _stopAlarmAndDismiss because we already handled dismiss/cancel above.
-    await AlarmNotificationController._stopAlarmAndDismiss(null);
-    log('[AlarmNotifications] Forced audio stop and dismissal complete for id=$id');
+    await _stopAlarmAndDismiss(null);
   }
 
-  // --- Cancel all alarms ---
+  // Cancel all alarms
   Future<void> cancelAllAlarms() async {
-    log('[AlarmNotifications] Cancel all alarms');
     await _notifications.cancelNotificationsByChannelKey('alarm_channel');
   }
 
-  // --- Load alarms from DB and schedule ---
+  // Load alarms from DB and schedule them
   Future<void> createFromDatabase() async {
-    log('[AlarmNotifications] Creating alarms from DB...');
     final db = await AlarmDatabase.instance.readAll();
 
     for (var alarm in db) {
@@ -347,34 +271,23 @@ class AlarmNotificationController {
       final label = alarm['label'] ?? 'Alarm';
       final isActive = (alarm['isActive'] ?? 1) == 1;
       final minutes = alarm['minutesSinceMidnight'] as int;
-      final hour = minutes ~/ 60;
-      final minute = minutes % 60;
-      final music = alarm['music'] ?? 'songs/alarm.mp3'; // Default sound
-
       if (!isActive) continue;
 
+      final hour = minutes ~/ 60;
+      final minute = minutes % 60;
+      final music = alarm['music'] ?? 'songs/alarm.mp3';
       final daysString = alarm['days'] ?? '';
+
+      // One-time alarm if no weekdays set
       if (daysString.isEmpty) {
         final now = DateTime.now();
         final next = DateTime(now.year, now.month, now.day, hour, minute);
         final target = next.isBefore(now) ? next.add(const Duration(days: 1)) : next;
-
-        await scheduleOneTimeAlarm(
-          id: id,
-          dateTime: target,
-          label: label,
-          musicPath: music,
-        );
+        await scheduleOneTimeAlarm(id: id, dateTime: target, label: label, musicPath: music);
       } else {
+        // Repeating alarm
         final days = daysString.split(',');
-        await scheduleRepeatingAlarm(
-          id: id,
-          label: label,
-          hour: hour,
-          minute: minute,
-          weekdays: days,
-          musicPath: music,
-        );
+        await scheduleRepeatingAlarm(id: id, label: label, hour: hour, minute: minute, weekdays: days, musicPath: music);
       }
     }
   }

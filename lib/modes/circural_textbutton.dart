@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+// Circular button with text inside
 class CircularTextButton extends StatelessWidget {
-  final String text;
-  final VoidCallback onPressed;
-  final double size;
-  final TextStyle? textStyle;
-  final Color backgroundColor;
+  final String text; // Text inside the button
+  final VoidCallback onPressed; // Tap handler
+  final double size; // Diameter of the circle
+  final TextStyle? textStyle; // Optional text style
+  final Color backgroundColor; // Button background color
 
   const CircularTextButton({
     super.key,
@@ -22,12 +23,12 @@ class CircularTextButton extends StatelessWidget {
       width: size,
       height: size,
       child: TextButton(
-        style: TextButton.styleFrom(
-          shape: const CircleBorder(),
-          backgroundColor: backgroundColor,
-          padding: EdgeInsets.all(24),
-        ),
         onPressed: onPressed,
+        style: TextButton.styleFrom(
+          shape: const CircleBorder(), // Ensures circular shape
+          backgroundColor: backgroundColor,
+          padding: EdgeInsets.all(24), // Controls inner spacing
+        ),
         child: Text(
           text,
           style: textStyle ?? const TextStyle(color: Colors.white),

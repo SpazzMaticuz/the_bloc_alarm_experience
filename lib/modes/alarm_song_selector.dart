@@ -9,7 +9,7 @@ const List<String> availableAlarmSongs = [
   'songs/time to say goodbye.mp3',
 ];
 
-// Helper to extract a friendly name from the asset path
+// Helper: Convert asset path to a friendly display name
 String getSongNameFromPath(String path) {
   final fileName = path.split('/').last.replaceAll('.mp3', '');
   return fileName
@@ -21,29 +21,30 @@ String getSongNameFromPath(String path) {
 }
 
 /// Shows a bottom sheet to select an alarm sound.
-/// Returns the selected song path (String) or null if dismissed.
+/// Returns the selected song path or null if dismissed.
 Future<String?> showAlarmSongSelector(
     BuildContext context,
     String? currentSelection,
     ) {
-  // ✅ Default to alarm.mp3 if no selection
+  // Default to 'alarm.mp3' if no selection exists
   final initialSelection = currentSelection?.isNotEmpty == true
       ? currentSelection!
       : 'songs/alarm.mp3';
 
   return showModalBottomSheet<String>(
     context: context,
-    isScrollControlled: false, // We control height manually
+    isScrollControlled: false,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (BuildContext sheetContext) {
       return StatefulBuilder(
         builder: (context, setModalState) {
+          // Temporary selection while browsing
           String tempSelection = initialSelection;
 
           return Container(
-            height: 400, // ✅ Locked height
+            height: 400, // Fixed height
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Column(
               children: [
@@ -68,22 +69,18 @@ Future<String?> showAlarmSongSelector(
 
                       return ListTile(
                         leading: Icon(
-                          isSelected
-                              ? Icons.check_circle
-                              : Icons.music_note,
-                          color: isSelected
-                              ? Colors.deepOrange
-                              : Colors.grey[700],
+                          isSelected ? Icons.check_circle : Icons.music_note,
+                          color: isSelected ? Colors.deepOrange : Colors.grey[700],
                         ),
                         title: Text(
                           songName,
                           style: TextStyle(
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
+                            fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                         onTap: () {
+                          // Update selection and close bottom sheet
                           setModalState(() {
                             tempSelection = songPath;
                           });

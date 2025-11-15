@@ -17,12 +17,12 @@ class Stopwatch extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       // Provide a new instance of AlarmBloc to thi s widget tree
-      create: (_) => AlarmBloc(),
+      create: (_) => StopWatchBloc(),
       child: Scaffold(
-        body: BlocBuilder<AlarmBloc, AlarmState>(
+        body: BlocBuilder<StopWatchBloc, AlarmState>(
           // BlocBuilder listens for state changes and rebuilds the UI accordingly
           builder: (context, state) {
-            final laps = context.watch<AlarmBloc>().laps;
+            final laps = context.watch<StopWatchBloc>().laps;
 
             // Extract the current timer value from the state
             final time = switch (state) {
@@ -48,7 +48,7 @@ class Stopwatch extends StatelessWidget {
                     // Start button dispatches StartTimer event
                     ElevatedButton(
                       onPressed: () =>
-                          context.read<AlarmBloc>().add(StartTimer()),
+                          context.read<StopWatchBloc>().add(StartTimer()),
                       child: const Text('Start'),
                     ),
                     const SizedBox(width: 10),
@@ -56,7 +56,7 @@ class Stopwatch extends StatelessWidget {
                     // Stop button dispatches StopTimer event
                     ElevatedButton(
                       onPressed: () =>
-                          context.read<AlarmBloc>().add(StopTimer()),
+                          context.read<StopWatchBloc>().add(StopTimer()),
                       child: const Text('Stop'),
                     ),
                     const SizedBox(width: 10),
@@ -64,7 +64,7 @@ class Stopwatch extends StatelessWidget {
                     // Reset button dispatches ResetTimer event
                     ElevatedButton(
                       onPressed: () =>
-                          context.read<AlarmBloc>().add(ResetTimer()),
+                          context.read<StopWatchBloc>().add(ResetTimer()),
                       child: const Text('Reset'),
                     ),
 
@@ -73,7 +73,7 @@ class Stopwatch extends StatelessWidget {
                     // Reset button dispatches ResetTimer event
                     ElevatedButton(
                       onPressed: () =>
-                          context.read<AlarmBloc>().add(LapTimer()),
+                          context.read<StopWatchBloc>().add(LapTimer()),
                       child: const Text('Lap'),
                     ),
                   ],

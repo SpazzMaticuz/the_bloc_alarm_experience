@@ -10,16 +10,15 @@ class Timers extends StatefulWidget {
 }
 
 class _TimersState extends State<Timers> {
-  int totalSeconds = 0;
+  int totalSeconds = 0; // Store selected duration in seconds
 
   @override
   Widget build(BuildContext context) {
-    // ❌ Removed redundant BlocProvider<TimerBloc> here
     return Scaffold(
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // ⏰ Reusable Time Picker Row
+          // Time picker row: hours, minutes, seconds
           TimePickerRow(
             mode: TimePickerMode.full,
             onChanged: (hours, minutes, seconds) {
@@ -30,12 +29,14 @@ class _TimersState extends State<Timers> {
           ),
           const SizedBox(height: 20),
 
+          // Button to add a new timer with selected duration
           ElevatedButton(
             onPressed: () =>
                 context.read<TimerCubicCubit>().addTimer(totalSeconds),
             child: const Text('Enter'),
           ),
 
+          // Scrollable list of timers
           Padding(
             padding: const EdgeInsets.only(top: 32.0),
             child: SizedBox(
@@ -43,7 +44,6 @@ class _TimersState extends State<Timers> {
               child: SingleChildScrollView(
                 child: BlocBuilder<TimerCubicCubit, TimerCubicState>(
                   builder: (context, state) {
-                    // ⭐ UPDATED: Read the list of TimerData objects
                     final timers = switch (state) {
                       TimerCubicListUpdated(:final timers) => timers,
                       _ => const <TimerData>[],
@@ -56,17 +56,15 @@ class _TimersState extends State<Timers> {
                         child: ListView.builder(
                           itemCount: timers.length,
                           itemBuilder: (context, index) {
-                            // ⭐ CRITICAL: Get the full TimerData object
                             final timerData = timers[index];
 
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               child: TimerControls(
-                                // ⭐ CRITICAL: Use the unique ID as the key for ListView efficiency
                                 key: ValueKey(timerData.id),
-                                // ⭐ PASS THE ID:
                                 timerId: timerData.id,
                                 initialDuration: timerData.initialDuration,
+                                // Delete timer
                                 onDelete: () {
                                   context
                                       .read<TimerCubicCubit>()

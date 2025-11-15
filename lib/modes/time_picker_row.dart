@@ -259,7 +259,7 @@ class _TimePickerRowState extends State<TimePickerRow> {
         ],
       );
     } else {
-      // ⚡ Full Mode (h/m/s) - All are Finite
+      //  Full Mode (h/m/s) - All are Finite
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:developer';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:bloc/bloc.dart';
 import 'package:meta/meta.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
-// Assuming globalAudioPlayer is defined here via global_values.dart
 import '../../global_values/global_values.dart';
 import '../../main.dart';
 import '../../splash_screen/stop_overlay.dart';
@@ -14,15 +12,10 @@ import 'package:flutter/material.dart';
 part 'timer_event.dart';
 part 'timer_state.dart';
 
-
-// Assuming globalAudioPlayer is defined in global_values.dart and is accessible.
-// final AudioPlayer globalAudioPlayer = AudioPlayer(); // This should be in global_values.dart
-
-
 class TimerBloc extends Bloc<TimerEvent, TimerState> {
-  static const int _tickDuration = 1;
-  Timer? _timer;
-  int _currentDuration = 0;
+  static const int _tickDuration = 1; // Tick interval in seconds
+  Timer? _timer; // Internal periodic timer
+  int _currentDuration = 0; // Tracks current remaining seconds
 
   TimerBloc(int initialDuration) : super(TimerInitial(initialDuration)) {
     on<StartTimer>(_onStarted);
@@ -33,111 +26,101 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
     on<StopAlarm>(_onStopAlarm);
   }
 
-
-  void _onStarted(StartTimer event, Emitter<TimerState> emit) async{
+  /// Starts the countdown timer
+  void _onStarted(StartTimer event, Emitter<TimerState> emit) async {
     _timer?.cancel();
     emit(TimerRunInProgress(event.duration));
 
-    // ⭐ Get the unique ID from the event
     final uniqueTimerId = event.timerId;
 
     _timer = Timer.periodic(const Duration(seconds: _tickDuration), (timer) {
       final duration = state.duration - _tickDuration;
+
       if (duration >= 0) {
-        add(TickedTimer(duration));
-      }
-      else {
-        timer.cancel();
+        add(TickedTimer(duration)); // Update timer every tick
+      } else {
+        timer.cancel(); // Stop timer when finished
 
         final isForeground = AppLifecycleObserver().isInForeground;
 
         if (isForeground) {
-          // ✅ App is open: navigate to StopOverlay
-          // Dismiss only the specific notification if it exists
+          // App is in foreground: navigate to StopOverlay
           AwesomeNotifications().cancel(uniqueTimerId);
           add(StopTimer());
           add(PlayAlarm());
 
-          // Use navigator to open the overlay
           navigatorKey.currentState?.push(
             MaterialPageRoute(
               builder: (_) => StopOverlay(
                 onStopPressed: () async {
-                  // This StopOverlay button is only for the foreground case
-                  await globalAudioPlayer.stop(); // stop alarm sound
-                  AwesomeNotifications().cancel(uniqueTimerId); // Dismiss the specific notification
+                  await globalAudioPlayer.stop();
+                  AwesomeNotifications().cancel(uniqueTimerId);
                 },
               ),
             ),
           );
-
         } else {
-          // 🔔 App is background: show notification
+          // App in background: send notification
           AwesomeNotifications().createNotification(
             content: NotificationContent(
-              // ⭐ CRITICAL FIX: Use the unique ID here!
               id: uniqueTimerId,
               channelKey: 'timer_channel',
               title: 'Timer Done',
               body: 'Your countdown has finished!',
               notificationLayout: NotificationLayout.Default,
               autoDismissible: false,
-              payload: {'timer_id': uniqueTimerId.toString()}, // Pass ID in payload
+              payload: {'timer_id': uniqueTimerId.toString()},
             ),
             actionButtons: [
               NotificationActionButton(
                 key: 'STOP',
                 label: 'Stop',
-                // autoDismissible: true, // Should be false if you want the handler to manually stop the sound
                 autoDismissible: false,
               )
             ],
           );
           add(StopTimer());
-          add(PlayAlarm()); // Starts the alarm sound in the background isolate
-        }}
-    });}
+          add(PlayAlarm());
+        }
+      }
+    });
+  }
 
-
+  /// Updates the state with new remaining time each tick
   void _onTicked(TickedTimer event, Emitter<TimerState> emit) {
     _currentDuration = event.duration;
     emit(TimerRunInProgress(event.duration));
   }
 
-// ⭐ UPDATED: Only cancels timer and resets state. Alarm sound logic is moved.
+  /// Stops the timer and keeps the current duration for potential restart
   void _onStopped(StopTimer event, Emitter<TimerState> emit) async {
     _timer?.cancel();
     emit(TimerInitial(_currentDuration));
   }
 
-  // ⭐ NEW HANDLER: Plays the alarm sound.
+  /// Plays the alarm sound in loop
   void _onPlayAlarm(PlayAlarm event, Emitter<TimerState> emit) async {
     await globalAudioPlayer.setReleaseMode(ReleaseMode.loop);
     await globalAudioPlayer.setVolume(1.0);
     await globalAudioPlayer.play(AssetSource('songs/alarm.mp3'));
-    log('Timer Alarm Sound Started');
   }
 
-  // ⭐ NEW HANDLER: Stops the alarm sound and dismisses notification.
+  /// Stops the alarm sound and dismisses notifications
   void _onStopAlarm(StopAlarm event, Emitter<TimerState> emit) async {
     await globalAudioPlayer.stop();
-    // In a multi-timer environment, we cannot dismiss ALL notifications here
-    // without knowing the ID. This handler is mostly used by the foreground
-    // StopOverlay, which should use its own ID-aware dismissal if needed.
-    // For now, keep the general dismiss as a fallback, but a targeted cancel is safer.
     AwesomeNotifications().dismissAllNotifications();
-    log('Timer Alarm Sound Stopped via event');
   }
 
+  /// Resets the timer to the initial duration
   void _onReset(ResetTimer event, Emitter<TimerState> emit) {
     _timer?.cancel();
     emit(TimerInitial(event.initTime));
   }
 
+  /// Cancel timer when bloc is closed to avoid memory leaks
   @override
   Future<void> close() {
     _timer?.cancel();
     return super.close();
   }
 }
-

@@ -2,19 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/timer_bloc/timer_bloc.dart';
 
+// A single timer row with Start/Stop, Reset, and Delete controls
 class TimerView extends StatelessWidget {
-  // ⭐ NEW: Accept the unique ID
-  final int timerId;
-  final int initialDuration;
-  final VoidCallback onDelete;
+  final int timerId; // Unique ID for this timer
+  final int initialDuration; // Initial countdown seconds
+  final VoidCallback onDelete; // Callback to remove the timer
 
   const TimerView({
     super.key,
-    required this.timerId, // ⭐ MUST be required
+    required this.timerId,
     required this.initialDuration,
     required this.onDelete,
   });
 
+  // Format seconds to HH:MM:SS
   String _formatDuration(int seconds) {
     final h = (seconds ~/ 3600).toString().padLeft(2, '0');
     final m = ((seconds % 3600) ~/ 60).toString().padLeft(2, '0');
@@ -27,48 +28,51 @@ class TimerView extends StatelessWidget {
     return BlocBuilder<TimerBloc, TimerState>(
       builder: (context, state) {
 
-        // ⭐ FIX: Removed redundant switch case. All TimerState objects
-        // contain the 'duration' property due to the base class, but
-        // matching the sealed subtypes is cleaner.
+        // Current remaining duration (updates every second in progress)
         final duration = switch (state) {
           TimerRunInProgress(:final duration) => duration,
           TimerRunComplete(:final duration) => duration,
           TimerInitial(:final duration) => duration,
         };
 
+        // Duration used when starting or restarting
         final durationToStart = switch (state) {
           TimerInitial(:final duration) => duration,
           TimerRunComplete(:final duration) => duration,
-          TimerRunInProgress(:final duration) => duration, // Can be used for pause/resume if implemented
+          TimerRunInProgress(:final duration) => duration,
         };
 
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Countdown display
             Text(
               _formatDuration(duration),
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(width: 16),
+
+            // Start / Stop button
             ElevatedButton(
               onPressed: () {
                 if (state is TimerInitial || state is TimerRunComplete) {
-                  // ⭐ CRITICAL FIX: Pass both duration AND the unique ID
                   context.read<TimerBloc>().add(StartTimer(durationToStart, timerId));
                 } else if (state is TimerRunInProgress) {
-                  // NOTE: For true pause, you'd add a PauseTimer event.
-                  // StopTimer here cancels and resets the state.
                   context.read<TimerBloc>().add(StopTimer());
                 }
               },
               child: Text(state is TimerRunInProgress ? 'Stop' : 'Start'),
             ),
+
+            // Reset button
             ElevatedButton(
               onPressed: () {
                 context.read<TimerBloc>().add(ResetTimer(initialDuration));
               },
               child: const Text('Reset'),
             ),
+
+            // Delete button
             IconButton(
               icon: const Icon(Icons.delete),
               onPressed: onDelete,

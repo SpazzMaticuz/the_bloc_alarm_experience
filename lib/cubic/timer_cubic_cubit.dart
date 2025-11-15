@@ -10,7 +10,6 @@ part 'timer_cubic_state.dart';
 
 class TimerCubicCubit extends Cubit<TimerCubicState> {
 
-  // ⭐ UPDATED: Initialize and load existing timers immediately
   TimerCubicCubit() : super(TimerCubicInitial()) {
     _loadTimers();
   }
@@ -81,6 +80,5 @@ class TimerCubicCubit extends Cubit<TimerCubicState> {
     log('TimerCubit: Removed timer with ID: ${timerToRemove.id}');
   }
 
-  // ⭐ UPDATED: Getter to return the list of TimerData
   List<TimerData> get currentTimers => List.unmodifiable(_currentTimers);
 }

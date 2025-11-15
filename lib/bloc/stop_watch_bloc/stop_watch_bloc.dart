@@ -8,7 +8,7 @@ import '/modes/timerLap.dart';
 part 'stop_watch_event.dart';
 part 'stop_watch_state.dart';
 
-class AlarmBloc extends Bloc<AlarmEvent, AlarmState> {
+class StopWatchBloc extends Bloc<AlarmEvent, AlarmState> {
   // Stopwatch timer instance
   final StopWatchTimer _stopWatchTimer = StopWatchTimer();
 
@@ -18,7 +18,7 @@ class AlarmBloc extends Bloc<AlarmEvent, AlarmState> {
 
   List<TimerLap> get laps => List.unmodifiable(_laps);
 
-  AlarmBloc() : super(AlarmInitial()) {
+  StopWatchBloc() : super(AlarmInitial()) {
     // Start timer event
     on<StartTimer>((event, emit) {
       // Start the stopwatch
