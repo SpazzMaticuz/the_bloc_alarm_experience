@@ -1,16 +1,35 @@
-# mynewclock
+Alarm & Timer App (Flutter + BLoC Architecture)
+Overview
 
-A new Flutter project.
+This project is a multi-purpose alarm and timer application built with Flutter and Dart, designed primarily as a learning project to explore and practice the BLoC and Cubit architecture patterns.
 
-## Getting Started
+It provides a unified interface for managing:
 
-This project is a starting point for a Flutter application.
+Alarms — with local notifications for waking up, sleeping, or reminders
 
-A few resources to get you started if this is your first Flutter project:
+Countdown timers — with optional lap tracking for measuring time intervals
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Stopwatch functionality — to measure elapsed time precisely
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+The project was intentionally kept simple and modular, focusing on clean architecture, separation of concerns, and reactive state management using Flutter BLoC.
+
+Tech Stack
+
+Framework: Flutter
+
+Language: Dart
+
+Database: SQLite (via sqflite and path_provider)
+
+Architecture: BLoC / Cubit pattern for state management
+
+Packages Used
+Package	Purpose
+flutter_bloc / bloc	Core state management (BLoC + Cubit)
+equatable	Simplified state comparison
+stop_watch_timer	Stopwatch functionality with laps
+flutter_time_picker_spinner	Custom time picker UI
+awesome_notifications	Local notifications and alarm alerts
+just_audio, audioplayers	Audio playback for alarms and timers
+sqflite, path_provider	Local data persistence (SQLite database)
+flutter_lints	Code style and linting rules
