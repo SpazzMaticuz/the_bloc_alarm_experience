@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
-
-import 'app_colors/app_colors.dart';
 import 'app_colors/app_themes.dart';
 import 'bloc/alarms/alarms_bloc.dart';
 import 'bloc/timer_bloc/timer_bloc.dart';
